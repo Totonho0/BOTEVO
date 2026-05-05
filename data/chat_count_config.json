@@ -1,0 +1,9 @@
+{
+  "exclude_name_keywords": [
+    "call",
+    "calls",
+    "voice",
+    "voz"
+  ],
+  "exclude_channel_ids_by_guild": {}
+}

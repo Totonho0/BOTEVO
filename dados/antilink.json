@@ -1,0 +1,47 @@
+{
+    "1466616485777768539": {
+        "enabled": false,
+        "action": "delete",
+        "warning_message": "Links nao sao permitidos!",
+        "timeout_minutes": 5,
+        "whitelist": [],
+        "ignored_channels": [],
+        "log_channel": null
+    },
+    "1365690541458718790": {
+        "enabled": false,
+        "action": "delete",
+        "warning_message": "Links nao sao permitidos!",
+        "timeout_minutes": 5,
+        "whitelist": [],
+        "ignored_channels": [],
+        "log_channel": null
+    },
+    "1471890190636290088": {
+        "enabled": false,
+        "action": "delete",
+        "warning_message": "Links nao sao permitidos!",
+        "timeout_minutes": 5,
+        "whitelist": [],
+        "ignored_channels": [],
+        "log_channel": null
+    },
+    "1409913656644206755": {
+        "enabled": false,
+        "action": "delete",
+        "warning_message": "Links nao sao permitidos!",
+        "timeout_minutes": 5,
+        "whitelist": [],
+        "ignored_channels": [],
+        "log_channel": null
+    },
+    "1279390544312930347": {
+        "enabled": false,
+        "action": "delete",
+        "warning_message": "Links nao sao permitidos!",
+        "timeout_minutes": 5,
+        "whitelist": [],
+        "ignored_channels": [],
+        "log_channel": null
+    }
+}

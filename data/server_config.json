@@ -1,0 +1,20 @@
+{
+    "1466616485777768539": {
+        "slash_enabled": true,
+        "slash_cmds": {
+            "sf": false,
+            "tosco": false,
+            "topship": true,
+            "status": false,
+            "baninfo": false,
+            "roleinfo": false,
+            "ping": false,
+            "mensal": false,
+            "semanal": false,
+            "diario": false,
+            "leaderboard": true,
+            "top": false,
+            "chattop": false
+        }
+    }
+}

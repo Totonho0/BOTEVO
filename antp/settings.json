@@ -1,0 +1,23 @@
+{
+  "1466616485777768539": {
+    "log_channel_id": 1496138992448704584,
+    "shame_channel_id": 1496138992448704584,
+    "spam_allowed_channel_id": 1494799165405008033,
+    "exempt_role_ids": [],
+    "flood_limit": 5,
+    "flood_window_sec": 8,
+    "timeout_minutes": 4320,
+    "score_threshold": 60,
+    "enabled": true
+  },
+  "1365690541458718790": {
+    "log_channel_id": 0,
+    "shame_channel_id": 0,
+    "exempt_role_ids": [],
+    "flood_limit": 5,
+    "flood_window_sec": 8,
+    "timeout_minutes": 4320,
+    "score_threshold": 60,
+    "enabled": true
+  }
+}

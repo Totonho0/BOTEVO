@@ -1,0 +1,10 @@
+discord.py
+pillow
+requests
+pytz
+fastapi
+uvicorn
+python-multipart
+itsdangerous
+bcrypt
+PyNaCl

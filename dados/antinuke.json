@@ -1,0 +1,62 @@
+{
+    "1466616485777768539": {
+        "enabled": true,
+        "limits": {
+            "ban": {
+                "count": 3,
+                "time": 10
+            },
+            "kick": {
+                "count": 4,
+                "time": 15
+            },
+            "channel_delete": {
+                "count": 2,
+                "time": 20
+            },
+            "channel_create": {
+                "count": 3,
+                "time": 20
+            },
+            "role_delete": {
+                "count": 2,
+                "time": 20
+            },
+            "role_create": {
+                "count": 3,
+                "time": 20
+            },
+            "webhook_create": {
+                "count": 3,
+                "time": 30
+            },
+            "member_role_update": {
+                "count": 6,
+                "time": 30
+            },
+            "permission_update": {
+                "count": 4,
+                "time": 25
+            }
+        },
+        "punishments": {
+            "ban": "none",
+            "kick": "none",
+            "channel_delete": "none",
+            "channel_create": "none",
+            "role_delete": "none",
+            "role_create": "none",
+            "webhook_create": "none",
+            "member_role_update": "none",
+            "permission_update": "none"
+        },
+        "trusted_users": [
+            882266401262420008,
+            377188128735232010,
+            1111753481448083456
+        ],
+        "log_channel": 1483584665229987921,
+        "notify_admins": true,
+        "action_history": []
+    }
+}

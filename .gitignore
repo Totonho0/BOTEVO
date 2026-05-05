@@ -1,0 +1,16 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Databases and runtime artifacts
+*.db
+*.db-shm
+*.db-wal
+*.log
+backup_*.json
+
+# IDE and local config
+.cursor/
+.claude/
