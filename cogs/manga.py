@@ -2654,7 +2654,7 @@ class MangaSetupView(discord.ui.View):
     async def select_number_btn(self, interaction: discord.Interaction, _: discord.ui.Button):
         await interaction.response.send_modal(MangaSetupNumberModal(self))
 
-    @discord.ui.button(label="Pesquisar manga", style=discord.ButtonStyle.primary, row=2)
+    @discord.ui.button(label="Pesquisar manga", style=discord.ButtonStyle.primary, row=4)
     async def search_btn(self, interaction: discord.Interaction, _: discord.ui.Button):
         await interaction.response.send_modal(MangaSetupSearchModal(self))
 
