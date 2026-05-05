@@ -2483,9 +2483,9 @@ class MangaSetupView(discord.ui.View):
         else:
             active_server = "3"
         self.server_select.options = [
-            discord.SelectOption(label="Servidor 1 (mangalivre.blog)", value="1", default=(active_server == "1")),
-            discord.SelectOption(label="Servidor 2 (Niadd)", value="2", default=(active_server == "2")),
-            discord.SelectOption(label="Servidor 3 (Manga Livre .to)", value="3", default=(active_server == "3")),
+            discord.SelectOption(label="Servidor 1", value="1", default=(active_server == "1")),
+            discord.SelectOption(label="Servidor 2", value="2", default=(active_server == "2")),
+            discord.SelectOption(label="Servidor 3", value="3", default=(active_server == "3")),
         ]
         self.server_select.placeholder = "Escolher servidor"
 
@@ -2681,9 +2681,9 @@ class MangaSetupView(discord.ui.View):
         min_values=1,
         max_values=1,
         options=[
-            discord.SelectOption(label="Servidor 1 (mangalivre.blog)", value="1", default=True),
-            discord.SelectOption(label="Servidor 2 (Niadd)", value="2"),
-            discord.SelectOption(label="Servidor 3 (Manga Livre .to)", value="3"),
+            discord.SelectOption(label="Servidor 1", value="1", default=True),
+            discord.SelectOption(label="Servidor 2", value="2"),
+            discord.SelectOption(label="Servidor 3", value="3"),
         ],
         row=4,
     )
