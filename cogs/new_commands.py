@@ -186,12 +186,11 @@ class NewCommandsCog(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def reset_horas(self, ctx):
         print(f"[DEBUG] reset_horas called by {ctx.author} (id={ctx.author.id})")
-        if not is_admin(ctx.author.id):
-            print(f"[DEBUG] unauthorized!")
-            return await ctx.send("Voce nao tem permissao para usar este comando.")
-
         guild = ctx.guild
         print(f"[DEBUG] guild={guild}")
+        # Include ongoing call time in stored totals before notifying/resetting.
+        if hasattr(self.bot, "flush_active_voice_stats"):
+            self.bot.flush_active_voice_stats(guild.id)
         all_users = get_all_user_ids_voice(guild.id)
         print(f"[DEBUG] all_users count={len(all_users)}")
 
@@ -236,6 +235,13 @@ class NewCommandsCog(commands.Cog):
 
         # Now reset voice hours AFTER DMs are sent
         reset_all_voice(guild.id)
+        # Start a fresh season from "now" for members still in eligible voice channels.
+        if hasattr(self.bot, "active_sessions"):
+            for (gid, uid) in list(self.bot.active_sessions.keys()):
+                if gid == guild.id:
+                    self.bot.active_sessions.pop((gid, uid), None)
+            if hasattr(self.bot, "save_active_sessions"):
+                self.bot.save_active_sessions()
 
         e = discord.Embed(
             title="\u2705 Horas Resetadas",
@@ -250,9 +256,6 @@ class NewCommandsCog(commands.Cog):
     @commands.command(name='reset_chats', description='Reseta chats do leaderboard (ADM)')
     @commands.has_permissions(administrator=True)
     async def reset_chats(self, ctx):
-        if not is_admin(ctx.author.id):
-            return await ctx.send("Voce nao tem permissao para usar este comando.")
-
         guild = ctx.guild
         all_users = get_all_user_ids_chat(guild.id)
         dm_sent = 0

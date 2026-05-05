@@ -416,11 +416,38 @@ class Bot(commands.Bot):
         session_start = ensure_aware(session_start)
         return int((now_brazil() - session_start).total_seconds())
 
+    def flush_active_voice_stats(self, guild_id: int | None = None):
+        """Persist elapsed active-session voice time into DB and restart counters from now.
+        Prevents data loss on restarts and keeps leaderboard totals durable."""
+        from database import add_voice
+        now = now_brazil()
+        touched = False
+        for gid, uid, started_at in list(self.iter_active_sessions(guild_id)):
+            guild = self.get_guild(gid)
+            if not guild:
+                continue
+            member = guild.get_member(uid)
+            if not member or not member.voice or not member.voice.channel:
+                continue
+            if not self.voice_channel_counts_for_ranking(member.voice.channel):
+                continue
+            started = ensure_aware(started_at)
+            dur = int((now - started).total_seconds())
+            if dur <= 0:
+                continue
+            add_voice(gid, uid, dur, started)
+            self.active_sessions[self._session_key(gid, uid)] = now
+            touched = True
+        if touched:
+            self.save_active_sessions()
+
     @tasks.loop(seconds=120)
     async def voice_coin_task(self):
         """ToT com intervalo configuravel no painel de economia."""
         from database import add_coins, get_econ, set_daily_coins
         from utils import now_brazil
+        # Persist voice time on each payout cycle so leaderboard survives restarts.
+        self.flush_active_voice_stats()
         cfg_file = 'data/econ_config.json'
         cfg = {"tot_per_min": 2, "payout_interval_sec": 120, "speed_multipliers": {}, "time_multipliers": {}}
         if os.path.exists(cfg_file):
