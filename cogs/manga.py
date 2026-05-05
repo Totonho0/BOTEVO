@@ -2357,6 +2357,7 @@ class MangaSetupView(discord.ui.View):
         self.category_mlto = MANGALIVRE_TO_DEFAULT_CATEGORY
         self.mlto_cat_page = 0
         self.search_query: str = ""
+        self._catalog_cache: dict[tuple[int, str], list[dict[str, Any]]] = {}
         self._refresh_lock = asyncio.Lock()
         self._sync_buttons()
 
@@ -2392,9 +2393,26 @@ class MangaSetupView(discord.ui.View):
             return False
         return True
 
-    async def load_catalog(self):
+    def _catalog_cache_key(self) -> tuple[int, str]:
+        if self.server == 2:
+            return (2, str(self.category))
+        if self.server == 3:
+            return (3, str(self.category_mlto))
+        return (1, "em-lancamento")
+
+    async def load_catalog(self, *, force: bool = False):
         # Recarregar o catalogo sempre limpa o estado de busca.
         self.search_query = ""
+        cache_key = self._catalog_cache_key()
+        if not force:
+            cached = self._catalog_cache.get(cache_key)
+            if cached is not None:
+                self.catalog = list(cached)
+                self.cover_cache.clear()
+                self.item_index = 0
+                self._sync_buttons()
+                return
+
         if self.server == 2:
             try:
                 catalog = await asyncio.to_thread(niadd.fetch_category, self.category)
@@ -2410,6 +2428,7 @@ class MangaSetupView(discord.ui.View):
             site_ml = _mangalivre_site_for_setup_server(self.server)
             catalog = await asyncio.to_thread(_get_setup_manga_catalog, 8, 120, site_ml)
 
+        self._catalog_cache[cache_key] = list(catalog)
         self.catalog = catalog
         self.cover_cache.clear()
         self.item_index = 0
