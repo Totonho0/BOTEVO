@@ -74,16 +74,12 @@ _MCF_MLTO_NAV_NEXT = "__mcf_mlto_next__"
 _MCF_MLTO_NAV_PREV = "__mcf_mlto_prev__"
 MANGALIVRE_TO_CATEGORY_ENTRIES: tuple[tuple[str, str | None], ...] = (
     (MANGALIVRE_TO_DEFAULT_CATEGORY, None),
-    ("+18", "https://mangalivre.to/genero/18/"),
     ("Acao", "https://mangalivre.to/genero/acao/"),
-    ("Adulto", "https://mangalivre.to/genero/adulto/"),
     ("Artes Marciais", "https://mangalivre.to/genero/artes-marciais/"),
     ("Aventura", "https://mangalivre.to/genero/aventura/"),
     ("Comedia", "https://mangalivre.to/genero/comedia/"),
     ("Demonios", "https://mangalivre.to/genero/demonios/"),
-    ("Doujinshi", "https://mangalivre.to/genero/doujinshi/"),
     ("Drama", "https://mangalivre.to/genero/drama/"),
-    ("Ecchi", "https://mangalivre.to/genero/ecchi/"),
     ("Escolar", "https://mangalivre.to/genero/escolar/"),
     ("Esportes", "https://mangalivre.to/genero/esportes/"),
     ("Fantasia", "https://mangalivre.to/genero/fantasia/"),
@@ -1658,6 +1654,7 @@ def _get_setup_manga_catalog(
     max_items: int = 120,
     site: MangalivreSite | None = None,
     list_seed: str | None = None,
+    allow_loose_fallback: bool = True,
 ) -> list[dict[str, str]]:
     s = site or MANGALIVRE_BLOG_SITE
     seed = (list_seed if list_seed is not None else s.list_seed).strip()
@@ -1678,7 +1675,7 @@ def _get_setup_manga_catalog(
 
         discovered_pages = max(discovered_pages, _extract_max_pages_from_manga_list(page_html))
         page_items = _extract_manga_cards_from_listing(page_html, s)
-        if not page_items:
+        if not page_items and allow_loose_fallback:
             page_items = _extract_manga_links_from_html(page_html, s)
         if not page_items and page > 1:
             break
@@ -2296,15 +2293,49 @@ class MangaSetupNumberModal(discord.ui.Modal, title="Selecionar Manga por Numero
         await _open_online_reader_from_url(interaction, interaction.user.id, manga_url)
 
 
+_ADULT_CATEGORY_KEYWORDS = (
+    "18",
+    "+18",
+    "adult",
+    "ecchi",
+    "hentai",
+    "nsfw",
+    "doujin",
+    "porno",
+    "porn",
+    "erot",
+)
+
+
+def _is_adult_category_label(label: str) -> bool:
+    norm = (label or "").strip().lower()
+    if not norm:
+        return False
+    return any(key in norm for key in _ADULT_CATEGORY_KEYWORDS)
+
+
+def _safe_niadd_categories() -> list[str]:
+    categories = [str(k) for k in niadd.CATEGORIES.keys() if not _is_adult_category_label(str(k))]
+    if not categories:
+        categories = [niadd.DEFAULT_CATEGORY]
+    if niadd.DEFAULT_CATEGORY in categories:
+        categories.sort(key=lambda x: (x != niadd.DEFAULT_CATEGORY, x.lower()))
+    else:
+        categories.sort(key=lambda x: x.lower())
+    return categories
+
+
 def _build_category_options(active: str) -> list[discord.SelectOption]:
     options: list[discord.SelectOption] = []
-    for label in niadd.CATEGORIES.keys():
+    safe_categories = _safe_niadd_categories()
+    current = active if active in safe_categories else safe_categories[0]
+    for label in safe_categories:
         # Discord limita o label da opcao em 100 chars; nossos labels sao curtos.
         options.append(
             discord.SelectOption(
                 label=label[:100],
                 value=label[:100],
-                default=(label == active),
+                default=(label == current),
             )
         )
     return options
@@ -2321,7 +2352,8 @@ class MangaSetupView(discord.ui.View):
         self.cover_cache: dict[str, str] = {}
         self.list_mode = False
         self.list_page_size = 8
-        self.category = niadd.DEFAULT_CATEGORY
+        safe_cats = _safe_niadd_categories()
+        self.category = niadd.DEFAULT_CATEGORY if niadd.DEFAULT_CATEGORY in safe_cats else safe_cats[0]
         self.category_mlto = MANGALIVRE_TO_DEFAULT_CATEGORY
         self.mlto_cat_page = 0
         self.search_query: str = ""
@@ -2372,7 +2404,7 @@ class MangaSetupView(discord.ui.View):
             ml_pages, ml_items = _mlto_catalog_fetch_limits(self.category_mlto)
             seed = _mlto_category_list_seed(self.category_mlto)
             catalog = await asyncio.to_thread(
-                _get_setup_manga_catalog, ml_pages, ml_items, MANGALIVRE_TO_SITE, seed
+                _get_setup_manga_catalog, ml_pages, ml_items, MANGALIVRE_TO_SITE, seed, False
             )
         else:
             site_ml = _mangalivre_site_for_setup_server(self.server)
@@ -2426,14 +2458,17 @@ class MangaSetupView(discord.ui.View):
         has_catalog = len(self.catalog) > 0
 
         if self.server == 1:
-            self.server_btn.label = "Servidor 1"
-            self.server_btn.style = discord.ButtonStyle.primary
+            active_server = "1"
         elif self.server == 2:
-            self.server_btn.label = "Servidor 2"
-            self.server_btn.style = discord.ButtonStyle.danger
+            active_server = "2"
         else:
-            self.server_btn.label = "Servidor 3"
-            self.server_btn.style = discord.ButtonStyle.success
+            active_server = "3"
+        self.server_select.options = [
+            discord.SelectOption(label="Servidor 1 (mangalivre.blog)", value="1", default=(active_server == "1")),
+            discord.SelectOption(label="Servidor 2 (Niadd)", value="2", default=(active_server == "2")),
+            discord.SelectOption(label="Servidor 3 (Manga Livre .to)", value="3", default=(active_server == "3")),
+        ]
+        self.server_select.placeholder = "Escolher servidor"
 
         if self.server == 2:
             self.category_select.disabled = False
@@ -2623,16 +2658,36 @@ class MangaSetupView(discord.ui.View):
     async def search_btn(self, interaction: discord.Interaction, _: discord.ui.Button):
         await interaction.response.send_modal(MangaSetupSearchModal(self))
 
-    @discord.ui.button(label="Servidor 1", style=discord.ButtonStyle.primary, row=2)
-    async def server_btn(self, interaction: discord.Interaction, _: discord.ui.Button):
-        self.server = 2 if self.server == 1 else (3 if self.server == 2 else 1)
+    @discord.ui.select(
+        placeholder="Escolher servidor",
+        min_values=1,
+        max_values=1,
+        options=[
+            discord.SelectOption(label="Servidor 1 (mangalivre.blog)", value="1", default=True),
+            discord.SelectOption(label="Servidor 2 (Niadd)", value="2"),
+            discord.SelectOption(label="Servidor 3 (Manga Livre .to)", value="3"),
+        ],
+        row=2,
+    )
+    async def server_select(self, interaction: discord.Interaction, select: discord.ui.Select):
+        chosen = select.values[0] if select.values else "1"
+        try:
+            new_server = int(chosen)
+        except ValueError:
+            new_server = 1
+        if new_server not in (1, 2, 3):
+            new_server = 1
+        if new_server == self.server:
+            return await self.refresh(interaction)
+        self.server = new_server
         self.list_mode = False
         self.search_query = ""
         if self.server == 3:
             self.category_mlto = MANGALIVRE_TO_DEFAULT_CATEGORY
             self.mlto_cat_page = 0
         if self.server != 2:
-            self.category = niadd.DEFAULT_CATEGORY
+            safe_cats = _safe_niadd_categories()
+            self.category = niadd.DEFAULT_CATEGORY if niadd.DEFAULT_CATEGORY in safe_cats else safe_cats[0]
         await self.refresh(interaction, reload_catalog=True)
 
     @discord.ui.select(
@@ -2683,6 +2738,10 @@ class MangaSetupView(discord.ui.View):
                 ephemeral=True,
             )
 
+        safe_cats = _safe_niadd_categories()
+        if chosen not in safe_cats:
+            return await interaction.response.send_message("Categoria indisponivel.", ephemeral=True)
+
         if not self._user_can_use(interaction.user, chosen):
             roles_text = self._format_required_roles(self.guild_id, chosen)
             return await interaction.response.send_message(
@@ -2711,7 +2770,7 @@ class MangaSetupView(discord.ui.View):
 def _niadd_category_discord_select_options() -> list[discord.SelectOption]:
     return [
         discord.SelectOption(label=key[:100], value=key[:100])
-        for key in niadd.CATEGORIES.keys()
+        for key in _safe_niadd_categories()
     ]
 
 
