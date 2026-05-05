@@ -2532,12 +2532,27 @@ class MangaSetupView(discord.ui.View):
 
     async def refresh(self, interaction: discord.Interaction, *, reload_catalog: bool = False):
         async with self._refresh_lock:
+            can_use_original_response = True
             if not interaction.response.is_done():
-                await interaction.response.defer()
+                try:
+                    await interaction.response.defer()
+                except discord.NotFound:
+                    # Interacao expirou antes do ACK (Discord code 10062).
+                    # Ainda tentamos atualizar a mensagem da view diretamente.
+                    can_use_original_response = False
             if reload_catalog or not self.catalog:
                 await self.load_catalog()
             embed = await self.build_embed()
-            await interaction.edit_original_response(embed=embed, view=self)
+            if can_use_original_response:
+                try:
+                    await interaction.edit_original_response(embed=embed, view=self)
+                    return
+                except discord.NotFound:
+                    # Token expirado: cai para edicao direta da mensagem.
+                    pass
+
+            if interaction.message is not None:
+                await interaction.message.edit(embed=embed, view=self)
 
     @discord.ui.button(label="Pagina -", style=discord.ButtonStyle.secondary, row=0)
     async def prev_page_btn(self, interaction: discord.Interaction, _: discord.ui.Button):
