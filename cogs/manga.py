@@ -2654,7 +2654,7 @@ class MangaSetupView(discord.ui.View):
     async def select_number_btn(self, interaction: discord.Interaction, _: discord.ui.Button):
         await interaction.response.send_modal(MangaSetupNumberModal(self))
 
-    @discord.ui.button(label="Pesquisar manga", style=discord.ButtonStyle.primary, row=4)
+    @discord.ui.button(label="Pesquisar manga", style=discord.ButtonStyle.primary, row=2)
     async def search_btn(self, interaction: discord.Interaction, _: discord.ui.Button):
         await interaction.response.send_modal(MangaSetupSearchModal(self))
 
@@ -2667,7 +2667,7 @@ class MangaSetupView(discord.ui.View):
             discord.SelectOption(label="Servidor 2 (Niadd)", value="2"),
             discord.SelectOption(label="Servidor 3 (Manga Livre .to)", value="3"),
         ],
-        row=2,
+        row=4,
     )
     async def server_select(self, interaction: discord.Interaction, select: discord.ui.Select):
         chosen = select.values[0] if select.values else "1"
