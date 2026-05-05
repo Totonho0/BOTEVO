@@ -2570,9 +2570,8 @@ class MangaSetupView(discord.ui.View):
             self.cover_cache[current_url] = cover_url
         else:
             cover_url = self.cover_cache.get(current_url, "")
-        if not cover_url and current_url:
-            cover_url = await asyncio.to_thread(_get_manga_cover_quick, current_url)
-            self.cover_cache[current_url] = cover_url
+        # Navegacao de pagina precisa ser instantanea; evita fetch de capa em tempo real.
+        # Se a capa nao veio do catalogo, segue sem capa para manter resposta rapida.
 
         self._sync_buttons()
         return _build_manga_setup_embed(
