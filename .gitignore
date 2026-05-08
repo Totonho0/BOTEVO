@@ -6,6 +6,8 @@ __pycache__/
 
 # Databases and runtime artifacts
 *.db
+!bot_systems.db
+!voice_stats.db
 *.db-shm
 *.db-wal
 *.log

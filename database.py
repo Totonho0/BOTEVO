@@ -921,36 +921,8 @@ def _parse_list_json(value):
     return []
 
 def get_active_marriage_by_user(guild_id, user_id):
-    local = _bdb.execute(
-        '''SELECT * FROM marriages
-           WHERE guild_id=? AND status='active' AND (spouse_a=? OR spouse_b=?)
-           ORDER BY id DESC LIMIT 1''',
-        (guild_id, user_id, user_id)
-    ).fetchone()
-    if local:
-        return local
-    # Fallback direto no banco legado para nao depender apenas da migracao de startup.
-    legacy_db = os.path.join(os.environ.get("BOT_LEGACY_SAVE_PATH", LEGACY_BOT_PATH).strip(), BOT_DB)
-    if not os.path.exists(legacy_db):
-        return None
-    conn = None
-    try:
-        conn = sqlite3.connect(legacy_db)
-        row = conn.execute(
-            '''SELECT * FROM marriages
-               WHERE guild_id=? AND status='active' AND (spouse_a=? OR spouse_b=?)
-               ORDER BY id DESC LIMIT 1''',
-            (guild_id, user_id, user_id)
-        ).fetchone()
-        return row
-    except Exception:
-        return None
-    finally:
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
+    # Casamento global: ignora guild_id por regra de negocio.
+    return get_active_marriage_by_user_global(user_id)
 
 def get_active_marriage_by_user_global(user_id):
     local = _bdb.execute(
@@ -984,12 +956,8 @@ def get_active_marriage_by_user_global(user_id):
                 pass
 
 def get_pending_marriage_by_partner(guild_id, proposer_id, partner_id):
-    return _bdb.execute(
-        '''SELECT * FROM marriages
-           WHERE guild_id=? AND status='pending' AND proposer_id=? AND spouse_a=? AND spouse_b=?
-           ORDER BY id DESC LIMIT 1''',
-        (guild_id, proposer_id, proposer_id, partner_id)
-    ).fetchone()
+    # Pedido global: nao depende de guild.
+    return get_pending_marriage_by_partner_global(proposer_id, partner_id)
 
 def get_pending_marriage_by_partner_global(proposer_id, partner_id):
     return _bdb.execute(
@@ -1053,14 +1021,8 @@ def reject_marriage(marriage_id, rejected_by, reason='recusado'):
     )
 
 def divorce_marriage(guild_id, user_id, reason=None):
-    marriage = get_active_marriage_by_user(guild_id, user_id)
-    if not marriage:
-        return None
-    _bdb.execute(
-        "UPDATE marriages SET status='divorced', ended_at=?, ended_by=?, end_reason=? WHERE id=?",
-        (now_brazil().isoformat(), user_id, reason, marriage[0])
-    )
-    return marriage
+    # Divorcio global: ignora guild_id.
+    return divorce_marriage_global(user_id, reason)
 
 def divorce_marriage_global(user_id, reason=None):
     marriage = get_active_marriage_by_user_global(user_id)
