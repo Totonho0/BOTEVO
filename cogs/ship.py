@@ -1244,6 +1244,46 @@ class ShipCog(commands.Cog):
             row = get_active_marriage_by_user(interaction.guild.id, target.id)
         info = marriage_row_to_dict(row) if row else None
         if not info:
+            # Fallback final em JSON legado para ambientes onde SQLite esteja desatualizado.
+            legacy_json = os.path.join("data", "marriage", "legacy_marriages.json")
+            try:
+                with open(legacy_json, "r", encoding="utf-8") as f:
+                    rows = json.load(f)
+                active = [
+                    r for r in rows
+                    if r.get("status") == "active" and target.id in (r.get("spouse_a"), r.get("spouse_b"))
+                ]
+                if active:
+                    rec = active[-1]
+                    try:
+                        witnesses = json.loads(rec.get("witnesses_json") or "[]")
+                    except Exception:
+                        witnesses = []
+                    info = {
+                        "id": rec.get("id"),
+                        "guild_id": rec.get("guild_id"),
+                        "proposer_id": rec.get("proposer_id"),
+                        "spouse_a": rec.get("spouse_a"),
+                        "spouse_b": rec.get("spouse_b"),
+                        "witnesses": witnesses,
+                        "status": rec.get("status"),
+                        "created_at": rec.get("created_at"),
+                        "accepted_at": rec.get("accepted_at"),
+                        "ended_at": rec.get("ended_at"),
+                        "ended_by": rec.get("ended_by"),
+                        "end_reason": rec.get("end_reason"),
+                        "proposal_dm_channel_id": rec.get("proposal_dm_channel_id"),
+                        "proposal_dm_message_id": rec.get("proposal_dm_message_id"),
+                        "celebrant_id": rec.get("celebrant_id"),
+                        "kiss_count": rec.get("kiss_count", 0),
+                        "hug_count": rec.get("hug_count", 0),
+                        "affection_click_count": rec.get("affection_click_count", 0),
+                        "retribute_click_count": rec.get("retribute_click_count", 0),
+                        "reject_click_count": rec.get("reject_click_count", 0),
+                    }
+            except Exception:
+                pass
+        if not info:
             return await interaction.followup.send("Nenhum casamento ativo encontrado.", ephemeral=True)
         view = MarriageStatusView(self.bot, info['id'], interaction.user.id)
         img = view._build_status_card(interaction.guild, info)
