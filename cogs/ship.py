@@ -1238,7 +1238,11 @@ class ShipCog(commands.Cog):
     async def casamento_status(self, interaction: discord.Interaction, membro: discord.Member = None):
         await interaction.response.defer()
         target = membro or interaction.user
-        row = get_active_marriage_by_user(interaction.guild.id, target.id)
+        guild_id = interaction.guild.id if interaction.guild else None
+        row = get_active_marriage_by_user(guild_id, target.id) if guild_id else None
+        if not row:
+            # Fallback global: evita falso negativo quando o casamento foi registrado fora do guild atual.
+            row = get_active_marriage_by_user_global(target.id)
         info = marriage_row_to_dict(row) if row else None
         if not info:
             return await interaction.followup.send("Nenhum casamento ativo encontrado.", ephemeral=True)
