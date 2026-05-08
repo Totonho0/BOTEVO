@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+from typing import List
 
 from database import (
     is_coleira_authorized,
@@ -57,7 +58,7 @@ class ColeiraConfigView(discord.ui.View):
 
 
 class ColeiraRemoveSelect(discord.ui.Select):
-    def __init__(self, cog: "ColeiraCog", owner_id: int, options: list[discord.SelectOption]):
+    def __init__(self, cog: "ColeiraCog", owner_id: int, options: List[discord.SelectOption]):
         super().__init__(
             placeholder="Selecione quem remover da coleira...",
             min_values=1,
@@ -89,7 +90,7 @@ class ColeiraRemoveSelect(discord.ui.Select):
 
 
 class ColeiraRemoveView(discord.ui.View):
-    def __init__(self, cog: "ColeiraCog", owner_id: int, options: list[discord.SelectOption]):
+    def __init__(self, cog: "ColeiraCog", owner_id: int, options: List[discord.SelectOption]):
         super().__init__(timeout=300)
         self.add_item(ColeiraRemoveSelect(cog, owner_id, options))
 

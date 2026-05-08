@@ -268,10 +268,6 @@ class VoiceCog(commands.Cog, name="Comandos"):
         e.set_image(url="attachment://leaderboard.png")
         await interaction.response.send_message(file=f, embed=e)
 
-    @app_commands.command(name='leaderboard', description='Ve o leaderboard completo')
-    async def leaderboard(self, interaction: discord.Interaction):
-        await self.top(interaction)
-
     @app_commands.command(name='transferir', description='Transfira ToT para outro membro')
     async def transferir(self, interaction: discord.Interaction, membro: discord.Member, quantidade: int):
         if membro.bot:
@@ -375,82 +371,6 @@ class VoiceCog(commands.Cog, name="Comandos"):
                 return await interaction.response.send_message("Informe o ID do item.", ephemeral=True)
             delete_shop_item(interaction.guild.id, item_id)
             await interaction.response.send_message(f"Item {item_id} removido da loja.", ephemeral=True)
-
-    @app_commands.command(name='daily', description='Resgate recompensa diaria de ToT')
-    async def daily(self, interaction: discord.Interaction):
-        amount = 120
-        ok, streak = claim_daily(interaction.guild.id, interaction.user.id, amount)
-        if not ok:
-            return await interaction.response.send_message("Voce ja resgatou seu daily hoje.", ephemeral=True)
-        await interaction.response.send_message(f"Daily resgatado: **+{amount} ToT** | Streak: **{streak}** dia(s).")
-
-    @app_commands.command(name='work', description='Trabalhe para ganhar ToT')
-    @app_commands.checks.cooldown(1, 3600.0)
-    async def work(self, interaction: discord.Interaction):
-        gain = random.randint(60, 180)
-        add_coins(interaction.guild.id, interaction.user.id, gain)
-        await interaction.response.send_message(f"Voce trabalhou e ganhou **{gain} ToT**.")
-
-    @app_commands.command(name='crime', description='Tente um crime arriscado por ToT')
-    @app_commands.checks.cooldown(1, 7200.0)
-    async def crime(self, interaction: discord.Interaction):
-        success = random.random() < 0.58
-        if success:
-            gain = random.randint(80, 260)
-            add_coins(interaction.guild.id, interaction.user.id, gain)
-            return await interaction.response.send_message(f"Crime bem sucedido! **+{gain} ToT**.")
-        loss = random.randint(40, 120)
-        remove_coins(interaction.guild.id, interaction.user.id, loss)
-        await interaction.response.send_message(f"Voce foi pego! **-{loss} ToT**.")
-
-    @app_commands.command(name='roubar', description='Tente roubar ToT de outro membro')
-    @app_commands.checks.cooldown(1, 10800.0)
-    async def roubar(self, interaction: discord.Interaction, alvo: discord.Member):
-        if alvo.bot or alvo.id == interaction.user.id:
-            return await interaction.response.send_message("Escolha um alvo valido.", ephemeral=True)
-        victim_econ = get_econ(interaction.guild.id, alvo.id)
-        victim_balance = victim_econ[2] if victim_econ else 0
-        if victim_balance < 50:
-            return await interaction.response.send_message("Esse alvo tem pouco saldo para roubo.", ephemeral=True)
-        success = random.random() < 0.42
-        if success:
-            stolen = min(victim_balance, random.randint(40, 180))
-            ok = transfer_coins(interaction.guild.id, alvo.id, interaction.user.id, stolen)
-            if not ok:
-                return await interaction.response.send_message("Roubo falhou por conflito de saldo.", ephemeral=True)
-            return await interaction.response.send_message(f"Roubo bem sucedido! Voce roubou **{stolen} ToT** de {alvo.mention}.")
-        penalty = random.randint(30, 90)
-        remove_coins(interaction.guild.id, interaction.user.id, penalty)
-        await interaction.response.send_message(f"Roubo falhou! Multa de **{penalty} ToT**.")
-
-    @app_commands.command(name='market_list', description='Ver anuncios do mercado')
-    async def market_list(self, interaction: discord.Interaction):
-        rows = get_market_listings(interaction.guild.id, 20)
-        if not rows:
-            return await interaction.response.send_message("Mercado vazio.")
-        desc = []
-        for listing_id, seller_id, item_id, qty, price, _created, name, emoji in rows[:15]:
-            item_name = name or f"Item {item_id}"
-            desc.append(f"`{listing_id}` • {(emoji or '💠')} **{item_name}** x{qty} — {price} ToT (vendedor <@{seller_id}>)")
-        e = discord.Embed(title="Mercado", description="\n".join(desc), color=0x22c55e)
-        await interaction.response.send_message(embed=e)
-
-    @app_commands.command(name='market_sell', description='Anunciar item no mercado')
-    async def market_sell(self, interaction: discord.Interaction, item_id: int, quantidade: int, preco: int):
-        if quantidade < 1 or preco < 1:
-            return await interaction.response.send_message("Quantidade e preco precisam ser positivos.", ephemeral=True)
-        ok = adjust_inventory(interaction.guild.id, interaction.user.id, item_id, -int(quantidade))
-        if not ok:
-            return await interaction.response.send_message("Voce nao possui essa quantidade no inventario.", ephemeral=True)
-        lid = create_market_listing(interaction.guild.id, interaction.user.id, item_id, int(quantidade), int(preco))
-        await interaction.response.send_message(f"Anuncio criado no mercado com ID `{lid}`.")
-
-    @app_commands.command(name='market_buy', description='Comprar um anuncio do mercado')
-    async def market_buy(self, interaction: discord.Interaction, listing_id: int):
-        ok, msg = buy_market_listing(interaction.guild.id, interaction.user.id, listing_id)
-        if not ok:
-            return await interaction.response.send_message(msg, ephemeral=True)
-        await interaction.response.send_message("Compra concluida com sucesso.")
 
     @app_commands.command(name='ping', description='Ve a latencia do bot')
     async def ping(self, interaction: discord.Interaction):
@@ -604,55 +524,6 @@ class VoiceCog(commands.Cog, name="Comandos"):
             return await interaction.response.send_message("Valor positivo.", ephemeral=True)
         remove_voice_seconds(interaction.guild.id, membro.id, horas * 3600)
         await interaction.response.send_message(f"Removidas **{horas}h** de {membro.mention}!")
-
-    @app_commands.command(name='debug_voice_session', description='Mostra o estado da sessao de voz de um membro')
-    @app_commands.default_permissions(administrator=True)
-    @app_commands.describe(membro='Membro para inspecionar a sessao de voz')
-    async def debug_voice_session(self, interaction: discord.Interaction, membro: discord.Member):
-        if not interaction.user.guild_permissions.administrator:
-            return await interaction.response.send_message("Apenas administradores podem usar este comando.", ephemeral=True)
-
-        guild_id = interaction.guild.id
-        session_start = self.bot.get_active_session_start(guild_id, membro.id)
-        in_voice = bool(membro.voice and membro.voice.channel)
-        channel = membro.voice.channel if in_voice else None
-        channel_counts = self.bot.voice_channel_counts_for_ranking(channel) if channel else False
-
-        if in_voice and channel_counts:
-            state = "CONTANDO"
-        elif in_voice and not channel_counts:
-            state = "PAUSADO (canal excluido no rconfig)"
-        elif session_start:
-            state = "SESSAO ATIVA SEM CANAL (reconexao pendente)"
-        else:
-            state = "SEM SESSAO"
-
-        current_seconds = self.bot.get_current_voice_time(guild_id, membro.id)
-        total_row = get_voice(guild_id, membro.id)
-        total_saved = total_row[2] if total_row else 0
-
-        started_text = "-"
-        elapsed_text = "0s"
-        if session_start:
-            started_text = _ensure_aware(session_start).strftime("%d/%m/%Y %H:%M:%S")
-            elapsed_text = fmt_sec(max(0, int((_now_brazil() - _ensure_aware(session_start)).total_seconds())))
-
-        e = discord.Embed(
-            title="DEBUG VOICE SESSION",
-            description=f"Inspecao de {membro.mention}",
-            color=0x5865f2
-        )
-        e.add_field(name="Estado", value=state, inline=False)
-        e.add_field(name="Em call agora", value="Sim" if in_voice else "Nao", inline=True)
-        e.add_field(name="Canal atual", value=channel.mention if channel else "-", inline=True)
-        e.add_field(name="Canal conta no ranking", value="Sim" if channel_counts else "Nao", inline=True)
-        e.add_field(name="Sessao ativa em memoria", value="Sim" if session_start else "Nao", inline=True)
-        e.add_field(name="Inicio da sessao", value=started_text, inline=True)
-        e.add_field(name="Tempo corrido da sessao", value=elapsed_text, inline=True)
-        e.add_field(name="Tempo atual que entra no profile", value=fmt_sec(current_seconds), inline=True)
-        e.add_field(name="Tempo salvo no banco", value=fmt_sec(total_saved), inline=True)
-        e.set_footer(text=f"guild={guild_id} | user={membro.id}")
-        await interaction.response.send_message(embed=e, ephemeral=True)
 
     @app_commands.command(name='reset_user', description='Reseta dados de um usuario')
     @app_commands.default_permissions(administrator=True)

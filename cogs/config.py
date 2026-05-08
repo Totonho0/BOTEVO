@@ -12,10 +12,10 @@ DEFAULT_PREFIX = '!'
 
 # Categorias com comandos
 COMMAND_CATEGORIES = {
-    "Voz": ["call", "profile", "chattop", "saldo", "diario", "semanal", "mensal", "top", "leaderboard", "rfixo", "cfixo", "rank", "levels"],
-    "Economy": ["transferir", "loja", "daily", "work", "crime", "roubar", "market_list", "market_sell", "market_buy", "addtot", "rtot", "setcoins"],
+    "Voz": ["call", "profile", "chattop", "saldo", "diario", "semanal", "mensal", "top", "rfixo", "cfixo", "rank", "levels"],
+    "Economy": ["transferir", "loja", "addtot", "rtot", "setcoins"],
     "Info": ["ping", "avatar", "userinfo", "serverinfo"],
-    "Admin": ["addhoras", "rmhoras", "debug_voice_session", "reset_user", "reset_server", "reset_horas", "reset_chats", "level_config", "modconfig", "autoconfig"],
+    "Admin": ["addhoras", "rmhoras", "reset_user", "reset_server", "reset_horas", "reset_chats", "level_config", "modconfig", "autoconfig"],
     "Utilidade": ["enquete", "sortear", "roleinfo", "calculadora", "limpar", "baninfo", "status"],
     "Seguranca": ["configurar_antilink", "antilink_info"],
     "Moderacao": ["warn", "warnings", "unwarn", "mute", "unmute", "kickm", "banm", "unbanm"],
