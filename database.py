@@ -444,6 +444,21 @@ def init():
         _bdb.execute('ALTER TABLE marriages ADD COLUMN retribute_click_count INTEGER DEFAULT 0')
     if 'reject_click_count' not in cols:
         _bdb.execute('ALTER TABLE marriages ADD COLUMN reject_click_count INTEGER DEFAULT 0')
+    _bdb.execute('''CREATE TABLE IF NOT EXISTS coleira_authorized (
+        guild_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        granted_by INTEGER NOT NULL,
+        granted_at TIMESTAMP NOT NULL,
+        PRIMARY KEY (guild_id, user_id)
+    )''')
+    _bdb.execute('''CREATE TABLE IF NOT EXISTS coleiras (
+        guild_id INTEGER NOT NULL,
+        owner_id INTEGER NOT NULL,
+        target_id INTEGER NOT NULL,
+        created_at TIMESTAMP NOT NULL,
+        PRIMARY KEY (guild_id, target_id)
+    )''')
+    _bdb.execute('CREATE INDEX IF NOT EXISTS idx_coleiras_owner ON coleiras(guild_id, owner_id)')
 
 def cleanup_old():
     cutoff = (now_brazil() - timedelta(days=30)).isoformat()
@@ -1122,6 +1137,83 @@ def wipe_guild(guild_id):
     _bdb.execute('DELETE FROM level_config WHERE guild_id=?', (guild_id,))
     _bdb.execute('DELETE FROM mod_cases WHERE guild_id=?', (guild_id,))
     _bdb.execute('DELETE FROM market_listings WHERE guild_id=?', (guild_id,))
+    _bdb.execute('DELETE FROM coleira_authorized WHERE guild_id=?', (guild_id,))
+    _bdb.execute('DELETE FROM coleiras WHERE guild_id=?', (guild_id,))
+
+# ============================================================
+# COLEIRA
+# ============================================================
+def is_coleira_authorized(guild_id, user_id):
+    row = _bdb.execute(
+        'SELECT 1 FROM coleira_authorized WHERE guild_id=? AND user_id=?',
+        (guild_id, user_id)
+    ).fetchone()
+    return bool(row)
+
+
+def set_coleira_authorized(guild_id, user_id, granted_by):
+    _bdb.execute(
+        '''INSERT INTO coleira_authorized (guild_id,user_id,granted_by,granted_at)
+           VALUES (?,?,?,?)
+           ON CONFLICT(guild_id,user_id) DO UPDATE SET
+             granted_by=excluded.granted_by,
+             granted_at=excluded.granted_at''',
+        (guild_id, user_id, granted_by, now_brazil().isoformat())
+    )
+
+
+def remove_coleira_authorized(guild_id, user_id):
+    _bdb.execute(
+        'DELETE FROM coleira_authorized WHERE guild_id=? AND user_id=?',
+        (guild_id, user_id)
+    )
+
+
+def get_coleira_authorized_users(guild_id):
+    return _bdb.execute(
+        'SELECT user_id FROM coleira_authorized WHERE guild_id=? ORDER BY granted_at DESC',
+        (guild_id,)
+    ).fetchall()
+
+
+def add_coleira(guild_id, owner_id, target_id):
+    _bdb.execute(
+        '''INSERT INTO coleiras (guild_id,owner_id,target_id,created_at)
+           VALUES (?,?,?,?)
+           ON CONFLICT(guild_id,target_id) DO UPDATE SET
+             owner_id=excluded.owner_id,
+             created_at=excluded.created_at''',
+        (guild_id, owner_id, target_id, now_brazil().isoformat())
+    )
+
+
+def remove_coleira(guild_id, owner_id, target_id):
+    c = _bdb.execute(
+        'DELETE FROM coleiras WHERE guild_id=? AND owner_id=? AND target_id=?',
+        (guild_id, owner_id, target_id)
+    )
+    return c.rowcount > 0
+
+
+def get_coleiras_by_owner(guild_id, owner_id):
+    return _bdb.execute(
+        'SELECT target_id, created_at FROM coleiras WHERE guild_id=? AND owner_id=? ORDER BY created_at DESC',
+        (guild_id, owner_id)
+    ).fetchall()
+
+
+def get_coleira_by_target(guild_id, target_id):
+    return _bdb.execute(
+        'SELECT owner_id, target_id, created_at FROM coleiras WHERE guild_id=? AND target_id=?',
+        (guild_id, target_id)
+    ).fetchone()
+
+
+def get_coleiras_where_owner(guild_id, owner_id):
+    return _bdb.execute(
+        'SELECT owner_id, target_id FROM coleiras WHERE guild_id=? AND owner_id=?',
+        (guild_id, owner_id)
+    ).fetchall()
 
 # ============================================================
 # SHARED VOICE TIME (for DM after season reset)
