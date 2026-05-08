@@ -80,6 +80,66 @@ def _copy_tree_missing(src_dir: str, dst_dir: str):
     return copied
 
 
+def _merge_sqlite_table_by_pk(src_db: str, dst_db: str, table_name: str, pk_name: str = "id"):
+    """
+    Merge simples: copia linhas de `src` para `dst` quando a PK nao existe em `dst`.
+    Nao sobrescreve dados ja existentes.
+    """
+    if not os.path.exists(src_db) or not os.path.exists(dst_db):
+        return 0
+    src_conn = None
+    dst_conn = None
+    try:
+        src_conn = sqlite3.connect(src_db)
+        dst_conn = sqlite3.connect(dst_db)
+        src_cur = src_conn.cursor()
+        dst_cur = dst_conn.cursor()
+
+        src_cols = [r[1] for r in src_cur.execute(f"PRAGMA table_info({table_name})").fetchall()]
+        dst_cols = [r[1] for r in dst_cur.execute(f"PRAGMA table_info({table_name})").fetchall()]
+        if not src_cols or not dst_cols or pk_name not in src_cols or pk_name not in dst_cols:
+            return 0
+
+        common = [c for c in src_cols if c in dst_cols]
+        if not common or pk_name not in common:
+            return 0
+
+        col_sql = ", ".join(common)
+        placeholders = ", ".join(["?"] * len(common))
+        select_sql = f"SELECT {col_sql} FROM {table_name}"
+        insert_sql = f"INSERT INTO {table_name} ({col_sql}) VALUES ({placeholders})"
+
+        inserted = 0
+        for row in src_cur.execute(select_sql).fetchall():
+            row_map = dict(zip(common, row))
+            pk_value = row_map.get(pk_name)
+            exists = dst_cur.execute(
+                f"SELECT 1 FROM {table_name} WHERE {pk_name}=? LIMIT 1",
+                (pk_value,),
+            ).fetchone()
+            if exists:
+                continue
+            dst_cur.execute(insert_sql, row)
+            inserted += 1
+
+        if inserted:
+            dst_conn.commit()
+        return inserted
+    except Exception:
+        return 0
+    finally:
+        if src_conn:
+            try:
+                src_conn.close()
+            except Exception:
+                pass
+        if dst_conn:
+            try:
+                dst_conn.close()
+            except Exception:
+                pass
+
+
 def _bootstrap_legacy_saves():
     """
     Importa saves do bot antigo se este projeto ainda nao tiver dados.
@@ -113,6 +173,14 @@ def _bootstrap_legacy_saves():
         # 3) Todos os saves em JSON/assets de dados (sem sobrescrever existentes).
         _copy_tree_missing(os.path.join(base, "dados"), "dados")
         _copy_tree_missing(os.path.join(base, "data"), "data")
+
+        # 4) Merge de casamentos por ID (caso o db atual ja exista com outros dados).
+        _merge_sqlite_table_by_pk(
+            os.path.join(base, BOT_DB),
+            BOT_DB,
+            "marriages",
+            "id",
+        )
     except Exception:
         # Nunca derruba o bot por falha na copia.
         pass
