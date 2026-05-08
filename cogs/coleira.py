@@ -12,6 +12,7 @@ from database import (
     get_coleiras_by_owner,
     get_coleira_by_target,
     get_coleiras_where_owner,
+    get_all_coleiras,
 )
 
 
@@ -188,32 +189,33 @@ class ColeiraCog(commands.Cog):
         actor = interaction.user if isinstance(interaction.user, discord.Member) else interaction.guild.get_member(interaction.user.id)
         if not actor:
             return await interaction.response.send_message("Usuario invalido.", ephemeral=True)
+        all_rows = get_all_coleiras(interaction.guild.id)
         rows = get_coleiras_by_owner(interaction.guild.id, actor.id)
-        if not rows:
-            return await interaction.response.send_message(
-                "Voce nao tem nenhuma coleira ativa.",
-                ephemeral=True,
-            )
+        if not all_rows:
+            return await interaction.response.send_message("Nao ha coleiras ativas no servidor.")
 
         options = []
-        desc_lines = []
+        public_lines = []
+        for owner_id, target_id, _created_at in all_rows[:25]:
+            public_lines.append(f"- <@{owner_id}> -> <@{target_id}>")
         for target_id, _created_at in rows[:25]:
             target = interaction.guild.get_member(int(target_id))
             label = target.display_name if target else f"Usuario {target_id}"
             options.append(discord.SelectOption(label=label[:100], value=str(target_id)))
-            desc_lines.append(f"- <@{target_id}>")
 
         embed = discord.Embed(
-            title="Suas coleiras ativas",
-            description="\n".join(desc_lines),
+            title="Coleiras ativas do servidor",
+            description="\n".join(public_lines),
             color=0xF59E0B,
         )
-        embed.set_footer(text="Escolha no select quem deseja liberar da coleira.")
-        await interaction.response.send_message(
-            embed=embed,
-            view=ColeiraRemoveView(self, actor.id, options),
-            ephemeral=True,
-        )
+        if options:
+            embed.set_footer(text="Voce pode remover apenas as coleiras que voce aplicou.")
+            return await interaction.response.send_message(
+                embed=embed,
+                view=ColeiraRemoveView(self, actor.id, options),
+            )
+        embed.set_footer(text="Voce nao aplicou nenhuma coleira para remover.")
+        await interaction.response.send_message(embed=embed)
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):

@@ -1267,6 +1267,13 @@ def get_coleiras_where_owner(guild_id, owner_id):
         (guild_id, owner_id)
     ).fetchall()
 
+
+def get_all_coleiras(guild_id):
+    return _bdb.execute(
+        'SELECT owner_id, target_id, created_at FROM coleiras WHERE guild_id=? ORDER BY created_at DESC',
+        (guild_id,)
+    ).fetchall()
+
 # ============================================================
 # SHARED VOICE TIME (for DM after season reset)
 # ============================================================

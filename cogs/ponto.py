@@ -44,6 +44,17 @@ def fmt_sec(s):
     return f"{sec}s"
 
 
+async def _safe_defer(interaction: discord.Interaction) -> bool:
+    """Evita traceback quando a interacao expira (10062) ou ja foi respondida."""
+    if interaction.response.is_done():
+        return False
+    try:
+        await interaction.response.defer()
+        return True
+    except discord.NotFound:
+        return False
+
+
 class VoiceCog(commands.Cog, name="Comandos"):
     def __init__(self, bot):
         self.bot = bot
@@ -75,7 +86,8 @@ class VoiceCog(commands.Cog, name="Comandos"):
     # ============================================================
     @app_commands.command(name='call', description='Ranking de voz atual')
     async def call(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+        if not await _safe_defer(interaction):
+            return
         data = self._cur_voice(interaction.guild.id)
         if not data:
             return await interaction.followup.send("Ranking vazio.")
@@ -117,7 +129,8 @@ class VoiceCog(commands.Cog, name="Comandos"):
 
     @app_commands.command(name='chattop', description='Ranking de chat')
     async def chattop(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+        if not await _safe_defer(interaction):
+            return
         data = all_chat(interaction.guild.id, 'total_messages')
         if not data:
             return await interaction.followup.send("Sem dados de chat.")
@@ -134,7 +147,8 @@ class VoiceCog(commands.Cog, name="Comandos"):
     @app_commands.command(name='rfixo', description='Ranking fixo de voz com botoes')
     @app_commands.default_permissions(administrator=True)
     async def rfixo(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+        if not await _safe_defer(interaction):
+            return
         view = RankingView(self.bot, interaction.guild)
         e, f = view._render()
         msg = await interaction.followup.send(embed=e, file=f, view=view)
@@ -146,7 +160,8 @@ class VoiceCog(commands.Cog, name="Comandos"):
     @app_commands.command(name='cfixo', description='Ranking fixo de chat com botoes')
     @app_commands.default_permissions(administrator=True)
     async def cfixo(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+        if not await _safe_defer(interaction):
+            return
         view = CfixoView(self.bot, interaction.guild)
         e, f = view._render()
         msg = await interaction.followup.send(embed=e, file=f, view=view)
