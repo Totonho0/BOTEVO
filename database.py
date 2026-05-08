@@ -921,20 +921,67 @@ def _parse_list_json(value):
     return []
 
 def get_active_marriage_by_user(guild_id, user_id):
-    return _bdb.execute(
+    local = _bdb.execute(
         '''SELECT * FROM marriages
            WHERE guild_id=? AND status='active' AND (spouse_a=? OR spouse_b=?)
            ORDER BY id DESC LIMIT 1''',
         (guild_id, user_id, user_id)
     ).fetchone()
+    if local:
+        return local
+    # Fallback direto no banco legado para nao depender apenas da migracao de startup.
+    legacy_db = os.path.join(os.environ.get("BOT_LEGACY_SAVE_PATH", LEGACY_BOT_PATH).strip(), BOT_DB)
+    if not os.path.exists(legacy_db):
+        return None
+    conn = None
+    try:
+        conn = sqlite3.connect(legacy_db)
+        row = conn.execute(
+            '''SELECT * FROM marriages
+               WHERE guild_id=? AND status='active' AND (spouse_a=? OR spouse_b=?)
+               ORDER BY id DESC LIMIT 1''',
+            (guild_id, user_id, user_id)
+        ).fetchone()
+        return row
+    except Exception:
+        return None
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 def get_active_marriage_by_user_global(user_id):
-    return _bdb.execute(
+    local = _bdb.execute(
         '''SELECT * FROM marriages
            WHERE status='active' AND (spouse_a=? OR spouse_b=?)
            ORDER BY id DESC LIMIT 1''',
         (user_id, user_id)
     ).fetchone()
+    if local:
+        return local
+    legacy_db = os.path.join(os.environ.get("BOT_LEGACY_SAVE_PATH", LEGACY_BOT_PATH).strip(), BOT_DB)
+    if not os.path.exists(legacy_db):
+        return None
+    conn = None
+    try:
+        conn = sqlite3.connect(legacy_db)
+        row = conn.execute(
+            '''SELECT * FROM marriages
+               WHERE status='active' AND (spouse_a=? OR spouse_b=?)
+               ORDER BY id DESC LIMIT 1''',
+            (user_id, user_id)
+        ).fetchone()
+        return row
+    except Exception:
+        return None
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 def get_pending_marriage_by_partner(guild_id, proposer_id, partner_id):
     return _bdb.execute(
