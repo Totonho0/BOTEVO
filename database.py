@@ -8,6 +8,8 @@ import pytz
 import json
 import os
 import shutil
+import logging
+import time
 
 from utils import get_tz, now_brazil, ensure_aware
 
@@ -304,13 +306,50 @@ class _DB:
     def __init__(self, path):
         self.path = path
         self._local = threading.local()
+        self.log = logging.getLogger(f"db:{path}")
+
+    @staticmethod
+    def _is_malformed_error(exc: Exception) -> bool:
+        return "malformed" in str(exc).lower()
+
+    def _connect(self):
+        conn = sqlite3.connect(self.path)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+        except sqlite3.DatabaseError:
+            # WAL can fail on degraded filesystems; fallback keeps bot alive.
+            conn.execute("PRAGMA journal_mode=DELETE")
+        conn.execute("PRAGMA busy_timeout=5000")
+        return conn
+
+    def _recover_malformed_db(self, original_exc: Exception):
+        self.log.error("SQLite malformado em %s: %s", self.path, original_exc)
+        try:
+            ts = int(time.time())
+            corrupt_path = f"{self.path}.corrupt.{ts}"
+            if os.path.exists(self.path):
+                shutil.move(self.path, corrupt_path)
+                self.log.warning("Banco corrompido movido para: %s", corrupt_path)
+            for suffix in ("-wal", "-shm"):
+                sidecar = f"{self.path}{suffix}"
+                if os.path.exists(sidecar):
+                    try:
+                        os.remove(sidecar)
+                    except Exception:
+                        pass
+        except Exception as recovery_exc:
+            self.log.exception("Falha ao recuperar banco corrompido %s: %s", self.path, recovery_exc)
 
     def _get(self):
         conn = getattr(self._local, "conn", None)
         if conn is None:
-            conn = sqlite3.connect(self.path)
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA busy_timeout=5000")
+            try:
+                conn = self._connect()
+            except sqlite3.DatabaseError as e:
+                if not self._is_malformed_error(e):
+                    raise
+                self._recover_malformed_db(e)
+                conn = self._connect()
             self._local.conn = conn
         return conn
 
@@ -324,10 +363,23 @@ class _DB:
             self._local.conn = None
 
     def execute(self, sql, params=None):
-        c = self._get().cursor()
-        c.execute(sql, params or ())
-        self._get().commit()
-        return c
+        try:
+            conn = self._get()
+            c = conn.cursor()
+            c.execute(sql, params or ())
+            conn.commit()
+            return c
+        except sqlite3.DatabaseError as e:
+            if not self._is_malformed_error(e):
+                raise
+            # One recovery attempt: close, rotate corrupted DB, reconnect and retry.
+            self.close()
+            self._recover_malformed_db(e)
+            conn = self._get()
+            c = conn.cursor()
+            c.execute(sql, params or ())
+            conn.commit()
+            return c
 
 _vdb = _DB(VOICE_DB)
 _bdb = _DB(BOT_DB)
