@@ -57,6 +57,29 @@ def _copy_json_if_missing(src: str, dst: str):
     return True
 
 
+def _copy_file_if_missing(src: str, dst: str):
+    if not os.path.exists(src) or os.path.exists(dst):
+        return False
+    os.makedirs(os.path.dirname(dst) or ".", exist_ok=True)
+    shutil.copy2(src, dst)
+    return True
+
+
+def _copy_tree_missing(src_dir: str, dst_dir: str):
+    if not os.path.isdir(src_dir):
+        return 0
+    copied = 0
+    for root, _, files in os.walk(src_dir):
+        rel = os.path.relpath(root, src_dir)
+        target_root = dst_dir if rel == "." else os.path.join(dst_dir, rel)
+        for name in files:
+            src = os.path.join(root, name)
+            dst = os.path.join(target_root, name)
+            if _copy_file_if_missing(src, dst):
+                copied += 1
+    return copied
+
+
 def _bootstrap_legacy_saves():
     """
     Importa saves do bot antigo se este projeto ainda nao tiver dados.
@@ -66,6 +89,7 @@ def _bootstrap_legacy_saves():
     if not base or not os.path.isdir(base):
         return
     try:
+        # 1) Bancos principais: copia se nao existir ou estiver vazio.
         _copy_if_missing_or_empty(
             os.path.join(base, VOICE_DB),
             VOICE_DB,
@@ -76,14 +100,19 @@ def _bootstrap_legacy_saves():
             BOT_DB,
             "marriages",
         )
-        _copy_json_if_missing(
-            os.path.join(base, "dados", "ship_data.json"),
-            os.path.join("dados", "ship_data.json"),
-        )
-        _copy_json_if_missing(
-            os.path.join(base, "data", "marriage", "resources.json"),
-            os.path.join("data", "marriage", "resources.json"),
-        )
+
+        # 2) Sidecars do SQLite (WAL/SHM) e outros bancos locais, se faltarem.
+        for name in os.listdir(base):
+            if not (name.endswith(".db") or name.endswith(".db-wal") or name.endswith(".db-shm")):
+                continue
+            _copy_file_if_missing(
+                os.path.join(base, name),
+                name,
+            )
+
+        # 3) Todos os saves em JSON/assets de dados (sem sobrescrever existentes).
+        _copy_tree_missing(os.path.join(base, "dados"), "dados")
+        _copy_tree_missing(os.path.join(base, "data"), "data")
     except Exception:
         # Nunca derruba o bot por falha na copia.
         pass
