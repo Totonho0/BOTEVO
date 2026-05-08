@@ -7,11 +7,89 @@ from datetime import datetime, timedelta
 import pytz
 import json
 import os
+import shutil
 
 from utils import get_tz, now_brazil, ensure_aware
 
 VOICE_DB = 'voice_stats.db'
 BOT_DB = 'bot_systems.db'
+LEGACY_BOT_PATH = r"C:\Users\anton\Desktop\BOTS\bot-primal"
+
+
+def _current_db_has_data(path: str, table_name: str) -> bool:
+    if not os.path.exists(path):
+        return False
+    try:
+        conn = sqlite3.connect(path)
+        cur = conn.cursor()
+        row = cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        ).fetchone()
+        if not row:
+            return False
+        count = cur.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+        return bool(count and int(count[0]) > 0)
+    except Exception:
+        return False
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def _copy_if_missing_or_empty(src: str, dst: str, probe_table: str):
+    if not os.path.exists(src):
+        return False
+    if _current_db_has_data(dst, probe_table):
+        return False
+    os.makedirs(os.path.dirname(dst) or ".", exist_ok=True)
+    shutil.copy2(src, dst)
+    return True
+
+
+def _copy_json_if_missing(src: str, dst: str):
+    if not os.path.exists(src) or os.path.exists(dst):
+        return False
+    os.makedirs(os.path.dirname(dst) or ".", exist_ok=True)
+    shutil.copy2(src, dst)
+    return True
+
+
+def _bootstrap_legacy_saves():
+    """
+    Importa saves do bot antigo se este projeto ainda nao tiver dados.
+    Permite subir o codigo no GitHub sem perder os dados locais de producao.
+    """
+    base = os.environ.get("BOT_LEGACY_SAVE_PATH", LEGACY_BOT_PATH).strip()
+    if not base or not os.path.isdir(base):
+        return
+    try:
+        _copy_if_missing_or_empty(
+            os.path.join(base, VOICE_DB),
+            VOICE_DB,
+            "voice_stats",
+        )
+        _copy_if_missing_or_empty(
+            os.path.join(base, BOT_DB),
+            BOT_DB,
+            "marriages",
+        )
+        _copy_json_if_missing(
+            os.path.join(base, "dados", "ship_data.json"),
+            os.path.join("dados", "ship_data.json"),
+        )
+        _copy_json_if_missing(
+            os.path.join(base, "data", "marriage", "resources.json"),
+            os.path.join("data", "marriage", "resources.json"),
+        )
+    except Exception:
+        # Nunca derruba o bot por falha na copia.
+        pass
+
+
+_bootstrap_legacy_saves()
 
 # ============================================================
 # CONNECTION MANAGEMENT
