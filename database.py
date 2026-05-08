@@ -140,6 +140,105 @@ def _merge_sqlite_table_by_pk(src_db: str, dst_db: str, table_name: str, pk_name
                 pass
 
 
+def _export_legacy_marriages_json(src_db: str, output_json: str):
+    """Exporta casamentos do banco legado para JSON (debug/backup legivel)."""
+    if not os.path.exists(src_db):
+        return 0
+    conn = None
+    try:
+        conn = sqlite3.connect(src_db)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM marriages ORDER BY id ASC").fetchall()
+        data = [dict(r) for r in rows]
+        os.makedirs(os.path.dirname(output_json) or ".", exist_ok=True)
+        with open(output_json, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return len(data)
+    except Exception:
+        return 0
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+def _merge_legacy_marriages_by_fingerprint(src_db: str, dst_db: str):
+    """
+    Merge de casamentos ignorando `id` legado.
+    Evita conflito de PK quando dois bancos tem IDs iguais para registros diferentes.
+    """
+    if not os.path.exists(src_db) or not os.path.exists(dst_db):
+        return 0
+    src_conn = None
+    dst_conn = None
+    try:
+        src_conn = sqlite3.connect(src_db)
+        dst_conn = sqlite3.connect(dst_db)
+        src_conn.row_factory = sqlite3.Row
+        dst_conn.row_factory = sqlite3.Row
+        src_cur = src_conn.cursor()
+        dst_cur = dst_conn.cursor()
+
+        src_cols = [r[1] for r in src_cur.execute("PRAGMA table_info(marriages)").fetchall()]
+        dst_cols = [r[1] for r in dst_cur.execute("PRAGMA table_info(marriages)").fetchall()]
+        if not src_cols or not dst_cols:
+            return 0
+
+        # Monta assinatura por campos estaveis para detectar duplicado sem depender do ID.
+        stable_keys = [k for k in ("guild_id", "spouse_a", "spouse_b", "created_at", "status") if k in dst_cols]
+        if len(stable_keys) < 3:
+            return 0
+
+        existing = set()
+        for r in dst_cur.execute(
+            "SELECT guild_id, spouse_a, spouse_b, created_at, status FROM marriages"
+        ).fetchall():
+            existing.add((r["guild_id"], r["spouse_a"], r["spouse_b"], r["created_at"], r["status"]))
+
+        # Insere sem `id` para deixar o SQLite gerar PK nova.
+        insert_cols = [c for c in src_cols if c in dst_cols and c != "id"]
+        if not insert_cols:
+            return 0
+        col_sql = ", ".join(insert_cols)
+        placeholders = ", ".join(["?"] * len(insert_cols))
+        insert_sql = f"INSERT INTO marriages ({col_sql}) VALUES ({placeholders})"
+
+        inserted = 0
+        for r in src_cur.execute("SELECT * FROM marriages ORDER BY id ASC").fetchall():
+            fp = (
+                r["guild_id"],
+                r["spouse_a"],
+                r["spouse_b"],
+                r["created_at"],
+                r["status"],
+            )
+            if fp in existing:
+                continue
+            values = [r[c] for c in insert_cols]
+            dst_cur.execute(insert_sql, values)
+            existing.add(fp)
+            inserted += 1
+
+        if inserted:
+            dst_conn.commit()
+        return inserted
+    except Exception:
+        return 0
+    finally:
+        if src_conn:
+            try:
+                src_conn.close()
+            except Exception:
+                pass
+        if dst_conn:
+            try:
+                dst_conn.close()
+            except Exception:
+                pass
+
+
 def _bootstrap_legacy_saves():
     """
     Importa saves do bot antigo se este projeto ainda nao tiver dados.
@@ -180,6 +279,15 @@ def _bootstrap_legacy_saves():
             BOT_DB,
             "marriages",
             "id",
+        )
+        # 5) Export legivel em JSON + merge robusto sem depender do ID legado.
+        _export_legacy_marriages_json(
+            os.path.join(base, BOT_DB),
+            os.path.join("data", "marriage", "legacy_marriages.json"),
+        )
+        _merge_legacy_marriages_by_fingerprint(
+            os.path.join(base, BOT_DB),
+            BOT_DB,
         )
     except Exception:
         # Nunca derruba o bot por falha na copia.
