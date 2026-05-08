@@ -1239,6 +1239,9 @@ class ShipCog(commands.Cog):
         await interaction.response.defer()
         target = membro or interaction.user
         row = get_active_marriage_by_user(interaction.guild.id, target.id)
+        if not row:
+            # Fallback para dados antigos/migrados cujo casamento pode estar atrelado a outro guild_id.
+            row = get_active_marriage_by_user_global(target.id)
         info = marriage_row_to_dict(row) if row else None
         if not info:
             return await interaction.followup.send("Nenhum casamento ativo encontrado.", ephemeral=True)
