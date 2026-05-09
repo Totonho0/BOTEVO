@@ -173,11 +173,18 @@ class ColeiraCog(commands.Cog):
             owner = interaction.guild.get_member(int(existing[0]))
             owner_txt = owner.mention if owner else f"`{existing[0]}`"
             return await interaction.response.send_message(
-                f"Esse usuario ja esta com coleira de {owner_txt}. So essa pessoa pode remover.",
+                f"Esse usuario ja esta com coleira de {owner_txt}. Ninguem mais pode colocar ate ser removida.",
                 ephemeral=True,
             )
 
-        add_coleira(interaction.guild.id, actor.id, usuario.id)
+        ok, other_owner = add_coleira(interaction.guild.id, actor.id, usuario.id)
+        if not ok:
+            owner = interaction.guild.get_member(int(other_owner))
+            owner_txt = owner.mention if owner else f"`{other_owner}`"
+            return await interaction.response.send_message(
+                f"Esse usuario ja esta com coleira de {owner_txt}. Ninguem mais pode colocar ate ser removida.",
+                ephemeral=True,
+            )
         await self._pull_target(interaction.guild, actor.id, usuario.id)
         await interaction.response.send_message(
             f"{usuario.mention} recebeu sua coleira. Enquanto ativa, sera puxado para sua call automaticamente.",

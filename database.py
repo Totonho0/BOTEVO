@@ -1229,14 +1229,48 @@ def get_coleira_authorized_users(guild_id):
 
 
 def add_coleira(guild_id, owner_id, target_id):
-    _bdb.execute(
-        '''INSERT INTO coleiras (guild_id,owner_id,target_id,created_at)
-           VALUES (?,?,?,?)
-           ON CONFLICT(guild_id,target_id) DO UPDATE SET
-             owner_id=excluded.owner_id,
-             created_at=excluded.created_at''',
-        (guild_id, owner_id, target_id, now_brazil().isoformat())
-    )
+    """
+    Aplica ou renova a coleira de forma atomica.
+    Um alvo so pode ter um dono por guild.
+
+    Retorno:
+      (True, owner_id) — aplicado ou atualizado (mesmo dono).
+      (False, other_owner_id) — alvo ja esta com coleira de outra pessoa.
+    """
+    conn = _bdb._get()
+    c = conn.cursor()
+    gid = int(guild_id)
+    oid = int(owner_id)
+    tid = int(target_id)
+    now = now_brazil().isoformat()
+    try:
+        c.execute("BEGIN IMMEDIATE")
+        row = c.execute(
+            "SELECT owner_id FROM coleiras WHERE guild_id=? AND target_id=?",
+            (gid, tid),
+        ).fetchone()
+        if row:
+            cur = int(row[0])
+            if cur != oid:
+                conn.rollback()
+                return False, cur
+            c.execute(
+                "UPDATE coleiras SET created_at=? WHERE guild_id=? AND target_id=?",
+                (now, gid, tid),
+            )
+        else:
+            c.execute(
+                "INSERT INTO coleiras (guild_id,owner_id,target_id,created_at) VALUES (?,?,?,?)",
+                (gid, oid, tid, now),
+            )
+        conn.commit()
+        return True, oid
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise
 
 
 def remove_coleira(guild_id, owner_id, target_id):
