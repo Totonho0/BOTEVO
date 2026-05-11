@@ -247,11 +247,12 @@ class MarriageInviteView(discord.ui.View):
 
 
 class MarriageStatusView(discord.ui.View):
-    def __init__(self, bot, marriage_id, requester_id):
+    def __init__(self, bot, marriage_id, requester_id, cached_info=None):
         super().__init__(timeout=300)
         self.bot = bot
         self.marriage_id = marriage_id
         self.requester_id = requester_id
+        self._cached_info = cached_info
 
     def _get_user_from_guild_or_cache(self, guild, uid):
         m = guild.get_member(uid) if guild else None
@@ -374,7 +375,7 @@ class MarriageStatusView(discord.ui.View):
             return
         await ix.response.defer()
         row = get_marriage_by_id(self.marriage_id)
-        info = marriage_row_to_dict(row)
+        info = marriage_row_to_dict(row) or self._cached_info
         if not info:
             return await ix.followup.send("Casamento nao encontrado.", ephemeral=True)
         img = self._build_status_card(ix.guild, info)
@@ -388,7 +389,7 @@ class MarriageStatusView(discord.ui.View):
             return
         await ix.response.defer()
         row = get_marriage_by_id(self.marriage_id)
-        info = marriage_row_to_dict(row)
+        info = marriage_row_to_dict(row) or self._cached_info
         if not info:
             return await ix.followup.send("Casamento nao encontrado.", ephemeral=True)
         img = self._build_memories_card(ix.guild, info)
@@ -1285,7 +1286,7 @@ class ShipCog(commands.Cog):
                 pass
         if not info:
             return await interaction.followup.send("Nenhum casamento ativo encontrado.", ephemeral=True)
-        view = MarriageStatusView(self.bot, info['id'], interaction.user.id)
+        view = MarriageStatusView(self.bot, info['id'], interaction.user.id, cached_info=info)
         img = view._build_status_card(interaction.guild, info)
         emb = discord.Embed(title="Status do Casamento", color=0xf472b6)
         emb.set_image(url="attachment://casamento_status.png")
